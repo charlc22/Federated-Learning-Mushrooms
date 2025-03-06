@@ -1,0 +1,15 @@
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch
+torchvision
+
+opencv-python
+matplotlib
+
+pyyaml
+scikit-learn
+pandas
+numpy
+scipy
+
+flwr
+# you need this too: pip install -U flwr["simulation"]

@@ -1,0 +1,11 @@
+# config file for hyperparameters used through `fl` folder
+
+num_rounds: 5
+num_clients: 4
+dataset_crops: ["cataract", "glaucoma"]
+batch_size: 16
+num_clients_per_round_fit: 2
+num_clients_per_round_eval: 4
+config_fit:
+  epochs: 1
+  lr: 0.001
