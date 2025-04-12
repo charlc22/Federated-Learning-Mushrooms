@@ -1,12 +1,16 @@
 # fed. learning client file
-
+import os
 import sys
 import pickle
 from collections import OrderedDict
 from typing import List, Tuple
 
-sys.path.append("../")
-from preprocessing.odir_dataset import OdirDataset
+# Add the src directory to the path to make preprocessing accessible
+current_dir = os.path.dirname(os.path.abspath(__file__))  # fl directory
+src_dir = os.path.dirname(current_dir)  # src directory
+sys.path.append(src_dir)
+
+from preprocessing.mushroom_dataset import MushroomDataset
 from model import getNet, train, test
 
 import yaml
@@ -66,8 +70,9 @@ class FlowerClient(fl.client.NumPyClient):
         """
         self.set_parameters(parameters)
         loss, accuracy = test(self.net, self.valloader, device=self.device)
-        return float(loss), len(self.testloader), {"accuracy": float(accuracy)}
-    
+        # Fix the reference to testloader, which should be valloader
+        return float(loss), len(self.valloader), {"accuracy": float(accuracy)}
+
 
 
 def generate_client_fn(trainloaders, valloaders, num_classes):
@@ -83,5 +88,5 @@ def generate_client_fn(trainloaders, valloaders, num_classes):
             valloader=valloaders[int(cid)],
             numclasses=num_classes
         ).to_client()
-    
+
     return client_fn

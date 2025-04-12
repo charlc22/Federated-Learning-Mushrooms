@@ -2,7 +2,7 @@ import os
 import sys
 
 # Add the src directory to the path to make preprocessing accessible
-current_dir = os.path.dirname(os.path.abspath(__file__))  # fl directory
+current_dir = os.path.dirname(os.path.abspath(__file__))  # centralized directory
 src_dir = os.path.dirname(current_dir)  # src directory
 sys.path.append(src_dir)
 
@@ -10,7 +10,7 @@ from ..preprocessing.mushroom_dataset import MushroomDataset
 import yaml
 
 import torch
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 
 # hyperparameters
@@ -19,10 +19,10 @@ with open("conf/config.yaml", "r") as f:
 
 batch_size = config["batch_size"]
 
-def load_data(num_clients):
+def load_data():
     """
-        Load Mushroom dataset & apply transforms
-        Returns: list of train_loaders, list of val_loaders, 1 test_loader
+        Load Mushroom dataset & apply transforms for centralized training
+        Returns: train_loader, val_loader
     """
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.228, 0.224, 0.225])
     transform = transforms.Compose([
@@ -54,25 +54,17 @@ def load_data(num_clients):
         transform=val_transform
     )
 
-    # Split training data for federated clients
-    client_partition_size = 1 / num_clients
-    partition_sizes = [client_partition_size] * num_clients
+    # Create data loaders (no splitting for federated learning)
+    train_loader = DataLoader(
+        dataset=mushroom_train,
+        batch_size=batch_size,
+        shuffle=True
+    )
 
-    train_splits = random_split(mushroom_train, partition_sizes) # list of train datasets for each client
-    val_splits = random_split(mushroom_val, partition_sizes)     # list of val datasets for each client
+    val_loader = DataLoader(
+        dataset=mushroom_val,
+        batch_size=batch_size,
+        shuffle=False
+    )
 
-    train_loaders = []
-    val_loaders = []
-
-    for i in range(num_clients):
-        train_loaders.append(
-            DataLoader(dataset=train_splits[i], batch_size=batch_size, shuffle=True)
-        )
-        val_loaders.append(
-            DataLoader(dataset=val_splits[i], batch_size=batch_size, shuffle=False)
-        )
-
-    # Use validation data as test data
-    test_loader = DataLoader(dataset=mushroom_val, batch_size=batch_size, shuffle=False)
-
-    return train_loaders, val_loaders, test_loader
+    return train_loader, val_loader

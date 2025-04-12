@@ -1,4 +1,11 @@
 import os
+import sys
+
+# Add the src directory to the path to make preprocessing accessible
+current_dir = os.path.dirname(os.path.abspath(__file__))  # centralized directory
+src_dir = os.path.dirname(current_dir)  # src directory
+sys.path.append(src_dir)
+
 os.environ["RAY_memory_monitor_refresh_ms"] = "0"
 import yaml
 import pickle
@@ -7,12 +14,13 @@ from typing import List
 
 import numpy as np
 import torch
-import flwr as fl
 
+# Use absolute imports (relative to src directory)
+from ..preprocessing.mushroom_dataset import MushroomDataset
+# Use imports from the same directory
 from dataset import load_data
-from model import getNet
-from client import generate_client_fn
-from server import get_on_fit_config, get_evaluate_fn
+# Import model from fl (since there's no model.py in centralized)
+from fl.model import getNet
 
 # hyperparameters
 with open("conf/config.yaml", "r") as f:
@@ -29,46 +37,22 @@ def get_parameters(net) -> List[np.ndarray]:
 
 #-------------------------------------
 def main():
-    train_loaders, val_loaders, test_loader = load_data(config["num_clients"])
+    # Using our new dataset.py which returns train_loader, val_loader
+    train_loader, val_loader = load_data()
 
-    client_fn = generate_client_fn(
-        trainloaders=train_loaders,
-        valloaders=val_loaders,
-        num_classes=num_classes
-    )
+    # Initialize the model
+    model = getNet(num_classes)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
 
-    strategy = fl.server.strategy.FedAvg(
-        fraction_fit=0.0,
-        min_fit_clients=config["num_clients_per_round_fit"],
-        fraction_evaluate=0.0,
-        min_evaluate_clients=config["num_clients_per_round_eval"],
-        min_available_clients=config["num_clients"],
-        on_fit_config_fn=get_on_fit_config(
-            config["config_fit"]
-        ),
-        evaluate_fn=get_evaluate_fn(num_classes, test_loader),
-    )
+    # Training logic for centralized training
+    # Add your centralized training code here
 
-    history = fl.simulation.start_simulation(
-        client_fn=client_fn,                # a function that spawns a particular client
-        num_clients=config["num_clients"],  # total number of clients
-        config=fl.server.ServerConfig(
-            num_rounds=config["num_rounds"]
-        ),
-        strategy=strategy,                  # our strategy of choice
-        client_resources={
-            "num_cpus": 2,
-            "num_gpus": 0.5,
-        },
-    )
-
-    # save results
-    results_path = "../../models/mushroom_results.pkl"
+    # Save model
+    results_path = "../../models/mushroom_centralized.pkl"
     os.makedirs(os.path.dirname(results_path), exist_ok=True)
-    results = {"history": history}
-    with open(str(results_path), "wb") as f:
-        pickle.dump(results, f)
-    print(f"Results saved to {results_path}")
+    torch.save(model.state_dict(), results_path)
+    print(f"Model saved to {results_path}")
 
 
 if __name__ == "__main__":
