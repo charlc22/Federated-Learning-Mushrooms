@@ -1,8 +1,9 @@
-# config file for hyperparameters used through `fl` folder
+# config file for mushroom classification
 
 num_rounds: 5
 num_clients: 4
-dataset_crops: ["cataract", "glaucoma"]
+# We no longer need dataset_crops since our MushroomDataset handles classes differently
+# dataset_crops: ["edible", "fresh", "non-fresh", "poisonous"]
 batch_size: 16
 num_clients_per_round_fit: 2
 num_clients_per_round_eval: 4

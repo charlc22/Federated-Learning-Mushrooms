@@ -1,64 +1,72 @@
 import sys
 sys.path.append("../")
-from preprocessing.odir_dataset import OdirDataset
+from ..preprocessing.mushroom_dataset import MushroomDataset
 import yaml
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split
-import torch.optim as optim
-import torchvision
 import torchvision.transforms as transforms
 
 # hyperparameters
 with open("conf/config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
-dataset_crops = config["dataset_crops"]
 batch_size = config["batch_size"]
 
-
-#---------------------------------------------
 def load_data(num_clients):
     """
-        Load ODIR dataset & apply transforms
+        Load Mushroom dataset & apply transforms
         Returns: list of train_loaders, list of val_loaders, 1 test_loader
     """
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.228, 0.224, 0.225])
     transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize((224, 224)),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomVerticalFlip(p=0.5),
-            transforms.ToTensor(),
-            normalize,
-            ])
-    
-    odir = OdirDataset(root_dir="../../data/odir/ODIR-5K", data_folder="raw", labels_csv="labels_perEye.csv", dataset_crops=dataset_crops,
-                       transform=transform)
-    data_splitting = (0.8, 0.2)
-    trainvals_odir, test_odir = random_split(odir, data_splitting)
+        transforms.Resize((224, 224)),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.5),
+        transforms.RandomRotation(20),
+        transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1),
+        transforms.ToTensor(),
+        normalize,
+    ])
 
-    train_odir, val_odir = random_split(trainvals_odir, data_splitting)
+    # Use direct paths to train and val as you specified
+    mushroom_train = MushroomDataset(
+        root_dir="../../dataset",  # Base directory
+        data_folder="train",       # Subdirectory
+        transform=transform
+    )
 
+    val_transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        normalize,
+    ])
+
+    mushroom_val = MushroomDataset(
+        root_dir="../../dataset",
+        data_folder="val",
+        transform=val_transform
+    )
+
+    # Split training data for federated clients
     client_partition_size = 1 / num_clients
     partition_sizes = [client_partition_size] * num_clients
 
-    train_odirs = random_split(train_odir, partition_sizes) # list of train datasets for each client
-    val_odirs = random_split(val_odir, partition_sizes)     # list of val datasets for each client
+    train_splits = random_split(mushroom_train, partition_sizes) # list of train datasets for each client
+    val_splits = random_split(mushroom_val, partition_sizes)     # list of val datasets for each client
 
     train_loaders = []
     val_loaders = []
 
     for i in range(num_clients):
         train_loaders.append(
-            DataLoader(dataset=train_odirs[i], batch_size=batch_size, shuffle=True)
+            DataLoader(dataset=train_splits[i], batch_size=batch_size, shuffle=True)
         )
         val_loaders.append(
-            DataLoader(dataset=val_odirs[i], batch_size=batch_size, shuffle=False)
+            DataLoader(dataset=val_splits[i], batch_size=batch_size, shuffle=False)
         )
-    test_loader = DataLoader(dataset=test_odir, batch_size=batch_size, shuffle=False)
-    
-    
+
+    # Use validation data as test data
+    test_loader = DataLoader(dataset=mushroom_val, batch_size=batch_size, shuffle=False)
+
     return train_loaders, val_loaders, test_loader
